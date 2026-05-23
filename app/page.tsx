@@ -24,7 +24,10 @@ function num(v: string | number | null | undefined): number {
   return typeof v === "number" ? v : parseFloat(v) || 0;
 }
 
-const BREAKDOWN_LABELS: { key: keyof import("@/lib/scoring-engine").ScoreBreakdown; label: string }[] = [
+const BREAKDOWN_LABELS: {
+  key: keyof import("@/lib/scoring-engine").ScoreBreakdown;
+  label: string;
+}[] = [
   { key: "niche", label: "Niche" },
   { key: "dr", label: "DR" },
   { key: "traffic", label: "Traffic" },
@@ -34,31 +37,7 @@ const BREAKDOWN_LABELS: { key: keyof import("@/lib/scoring-engine").ScoreBreakdo
   { key: "flags", label: "Flags" },
 ];
 
-/* ------------------------------------------------------------------ */
-/*  Styles                                                             */
-/* ------------------------------------------------------------------ */
-
-const glass = {
-  background: "rgba(255,255,255,0.05)",
-  backdropFilter: "blur(20px)",
-  WebkitBackdropFilter: "blur(20px)",
-  border: "1px solid rgba(255,255,255,0.1)",
-  borderRadius: "24px",
-  boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-} as const;
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  background: "rgba(255,255,255,0.07)",
-  backdropFilter: "blur(12px)",
-  border: "1px solid rgba(255,255,255,0.12)",
-  borderRadius: "12px",
-  padding: "10px 14px",
-  color: "white",
-  fontSize: "14px",
-  outline: "none",
-  transition: "all 200ms ease-out",
-};
+const STEP_LABELS = ["Brief", "Domains", "Results"] as const;
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
@@ -70,16 +49,16 @@ export default function Page() {
 
   /* ---- Brief state ---- */
   const [clientName, setClientName] = useState("");
-  const [websiteUrl, setWebsiteUrl] = useState("");
   const [niches, setNiches] = useState("");
-  const [manager, setManager] = useState("");
   const [keywords, setKeywords] = useState("");
   const [budget, setBudget] = useState(300);
   const [linkGoal, setLinkGoal] = useState(10);
   const [minDR, setMinDR] = useState(45);
   const [minTraffic, setMinTraffic] = useState(2000);
   const [geo, setGeo] = useState("global");
-  const [followType, setFollowType] = useState<"dofollow" | "either">("dofollow");
+  const [followType, setFollowType] = useState<"dofollow" | "either">(
+    "dofollow"
+  );
   const [profile, setProfile] = useState("standard");
   const [shortlistSize, setShortlistSize] = useState(50);
 
@@ -94,15 +73,26 @@ export default function Page() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [dbLoading, setDbLoading] = useState(false);
   const [exportError, setExportError] = useState("");
-  const [activeTab, setActiveTab] = useState<"shortlist" | "disqualified">("shortlist");
+  const [activeTab, setActiveTab] = useState<"shortlist" | "disqualified">(
+    "shortlist"
+  );
 
   /* ---- Derived ---- */
-  const qualified = useMemo(() => results.filter((r) => !r.disqualified), [results]);
-  const disqualified = useMemo(() => results.filter((r) => r.disqualified), [results]);
+  const qualified = useMemo(
+    () => results.filter((r) => !r.disqualified),
+    [results]
+  );
+  const disqualified = useMemo(
+    () => results.filter((r) => r.disqualified),
+    [results]
+  );
 
   const totals = useMemo(() => {
     const sel = qualified.filter((r) => selected.has(r.domain));
-    const spent = sel.reduce((t, r) => t + num(r.raw.li_price ?? r.raw.gp_price), 0);
+    const spent = sel.reduce(
+      (t, r) => t + num(r.raw.li_price ?? r.raw.gp_price),
+      0
+    );
     const totalBudget = budget * linkGoal;
     const avgDr = sel.length
       ? Math.round(sel.reduce((t, r) => t + num(r.raw.dr), 0) / sel.length)
@@ -112,21 +102,29 @@ export default function Page() {
 
   const avgScore = useMemo(() => {
     if (!qualified.length) return 0;
-    return Math.round(qualified.reduce((t, r) => t + r.totalScore, 0) / qualified.length);
+    return Math.round(
+      qualified.reduce((t, r) => t + r.totalScore, 0) / qualified.length
+    );
   }, [qualified]);
 
   /* ---- Handlers ---- */
 
-  const buildBrief = useCallback((): ScoringBrief => ({
-    niches,
-    targetKeywords: keywords.split("\n").map((k) => k.trim()).filter(Boolean),
-    perLinkBudget: budget,
-    geo,
-    followType,
-    profile,
-    minDR,
-    minTraffic,
-  }), [niches, keywords, budget, geo, followType, profile, minDR, minTraffic]);
+  const buildBrief = useCallback(
+    (): ScoringBrief => ({
+      niches,
+      targetKeywords: keywords
+        .split("\n")
+        .map((k) => k.trim())
+        .filter(Boolean),
+      perLinkBudget: budget,
+      geo,
+      followType,
+      profile,
+      minDR,
+      minTraffic,
+    }),
+    [niches, keywords, budget, geo, followType, profile, minDR, minTraffic]
+  );
 
   async function handleCsvUpload(file: File) {
     setError("");
@@ -153,7 +151,9 @@ export default function Page() {
       const res = await fetch("/api/domains");
       if (!res.ok) throw new Error("Failed to load domains from database");
       const data = await res.json();
-      const rows: DomainRecord[] = Array.isArray(data) ? data : data.domains ?? [];
+      const rows: DomainRecord[] = Array.isArray(data)
+        ? data
+        : (data.domains ?? []);
       if (!rows.length) {
         setError("No domains found in the database.");
         return;
@@ -245,448 +245,593 @@ export default function Page() {
     });
   }
 
-  const stepLabels = ["Brief", "Domains", "Results", "Review", "Export"];
-
   /* ---- Render ---- */
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "radial-gradient(ellipse at top, #0f0c29, #1a1a2e, #0d0d0d)",
-        color: "white",
-      }}
-    >
+    <div className="min-h-dvh">
       {/* ---- Header ---- */}
       <header
+        className="flex items-center justify-between px-6 py-4 border-b"
         style={{
           background: "rgba(255,255,255,0.03)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          borderBottom: "1px solid rgba(255,255,255,0.08)",
-          padding: "16px 24px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
+          backdropFilter: "blur(24px) saturate(180%)",
+          WebkitBackdropFilter: "blur(24px) saturate(180%)",
+          borderColor: "rgba(255,255,255,0.08)",
         }}
       >
-        <h1
-          style={{
-            fontSize: "20px",
-            fontWeight: 700,
-            background: "linear-gradient(to right, #00d4ff, #a855f7)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-            margin: 0,
-          }}
-        >
+        <h1 className="gradient-text text-xl font-bold tracking-tight">
           Domain Selector
         </h1>
-        <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "14px" }}>
-          {step} of {stepLabels.length}
+        <span className="text-sm" style={{ color: "var(--muted)" }}>
+          Step {step} of {STEP_LABELS.length}
         </span>
       </header>
 
       {/* ---- Step Progress ---- */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 24px 0", gap: "0" }}>
-        {stepLabels.map((label, i) => {
+      <nav
+        className="flex items-center justify-center pt-6 pb-2 px-6"
+        aria-label="Progress"
+      >
+        {STEP_LABELS.map((label, i) => {
           const n = i + 1;
           const isActive = n === step;
           const isCompleted = n < step;
           return (
-            <div key={n} style={{ display: "flex", alignItems: "center" }}>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: "50%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "14px",
-                    fontWeight: 600,
-                    transition: "all 200ms ease-out",
-                    ...(isCompleted
-                      ? { background: "#00d4ff", color: "#000" }
+            <div key={n} className="flex items-center">
+              <div className="flex flex-col items-center">
+                <button
+                  onClick={() => {
+                    if (isCompleted) setStep(n);
+                  }}
+                  aria-current={isActive ? "step" : undefined}
+                  aria-label={`Step ${n}: ${label}`}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-200 ${
+                    isCompleted
+                      ? "cursor-pointer"
+                      : isActive
+                        ? "cursor-default"
+                        : "cursor-default"
+                  }`}
+                  style={
+                    isCompleted
+                      ? { background: "var(--accent-cyan)", color: "#000" }
                       : isActive
                         ? {
-                            background: "rgba(0,212,255,0.2)",
-                            color: "#00d4ff",
-                            boxShadow: "0 0 20px rgba(0,212,255,0.3), inset 0 0 0 2px #00d4ff",
+                            background: "rgba(0,212,255,0.15)",
+                            color: "var(--accent-cyan)",
+                            boxShadow:
+                              "0 0 24px rgba(0,212,255,0.25), inset 0 0 0 2px var(--accent-cyan)",
                           }
-                        : { background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.4)" }),
+                        : {
+                            background: "rgba(255,255,255,0.06)",
+                            color: "rgba(255,255,255,0.35)",
+                          }
+                  }
+                >
+                  {isCompleted ? (
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="3.5 8.5 6.5 11.5 12.5 5.5" />
+                    </svg>
+                  ) : (
+                    n
+                  )}
+                </button>
+                <span
+                  className="text-[11px] mt-1.5 font-medium tracking-wide"
+                  style={{
+                    color: isActive
+                      ? "var(--accent-cyan)"
+                      : "rgba(255,255,255,0.35)",
                   }}
                 >
-                  {isCompleted ? "✓" : n}
-                </div>
-                <span style={{ fontSize: "11px", marginTop: 4, color: isActive ? "#00d4ff" : "rgba(255,255,255,0.4)" }}>
                   {label}
                 </span>
               </div>
-              {i < stepLabels.length - 1 && (
+              {i < STEP_LABELS.length - 1 && (
                 <div
+                  className="w-16 h-0.5 mx-2 mb-5 rounded-full transition-colors duration-300"
                   style={{
-                    width: 48,
-                    height: 2,
-                    margin: "0 4px",
-                    marginBottom: 18,
-                    background: isCompleted ? "#00d4ff" : "rgba(255,255,255,0.1)",
-                    borderRadius: 1,
-                    transition: "all 200ms ease-out",
+                    background: isCompleted
+                      ? "var(--accent-cyan)"
+                      : "rgba(255,255,255,0.1)",
                   }}
                 />
               )}
             </div>
           );
         })}
-      </div>
+      </nav>
 
       {/* ---- Main Content ---- */}
-      <main style={{ maxWidth: "768px", margin: "0 auto", padding: "32px 24px" }}>
-        {/* Error */}
-        {error && (
-          <div style={{ ...glass, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", padding: "12px 16px", marginBottom: 24, fontSize: "14px", color: "#f87171" }}>
-            {error}
-          </div>
-        )}
+      <main className="max-w-3xl mx-auto px-6 pt-6 pb-16">
+        {/* Errors */}
+        {error && <ErrorBanner>{error}</ErrorBanner>}
         {exportError && (
-          <div style={{ ...glass, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", padding: "12px 16px", marginBottom: 24, fontSize: "14px", color: "#f87171" }}>
-            Export error: {exportError}
-          </div>
+          <ErrorBanner>Export error: {exportError}</ErrorBanner>
         )}
 
-        {/* ---- STEP 1: Campaign Brief ---- */}
+        {/* ======== STEP 1: Campaign Brief ======== */}
         {step === 1 && (
-          <div style={{ ...glass, padding: "32px" }}>
-            <h2
-              style={{
-                fontSize: "24px",
-                fontWeight: 700,
-                background: "linear-gradient(to right, #00d4ff, #a855f7)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-                margin: "0 0 4px",
-              }}
-            >
+          <div className="glass p-8">
+            <h2 className="gradient-text text-2xl font-bold mb-1">
               Campaign Brief
             </h2>
-            <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "14px", margin: "0 0 24px" }}>
+            <p className="text-sm mb-8" style={{ color: "var(--muted)" }}>
               Tell us about this client and their goals
             </p>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <GlassField label="Client Name">
-                <input style={inputStyle} type="text" value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Acme Corp" onFocus={focusRing} onBlur={blurRing} />
-              </GlassField>
-              <GlassField label="Website URL">
-                <input style={inputStyle} type="text" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="https://acme.com" onFocus={focusRing} onBlur={blurRing} />
+                <input
+                  className="glass-input"
+                  type="text"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                  placeholder="Acme Corp"
+                />
               </GlassField>
               <GlassField label="Industry / Niches">
-                <input style={inputStyle} type="text" value={niches} onChange={(e) => setNiches(e.target.value)} placeholder="saas, hr software, employee management" onFocus={focusRing} onBlur={blurRing} />
-              </GlassField>
-              <GlassField label="Assigned Manager">
-                <input style={inputStyle} type="text" value={manager} onChange={(e) => setManager(e.target.value)} placeholder="John Smith" onFocus={focusRing} onBlur={blurRing} />
+                <input
+                  className="glass-input"
+                  type="text"
+                  value={niches}
+                  onChange={(e) => setNiches(e.target.value)}
+                  placeholder="saas, hr software, employee management"
+                />
               </GlassField>
               <GlassField label="Per-link Budget ($)">
-                <input style={inputStyle} type="number" value={budget} onChange={(e) => setBudget(+e.target.value)} onFocus={focusRing} onBlur={blurRing} />
+                <input
+                  className="glass-input"
+                  type="number"
+                  value={budget}
+                  onChange={(e) => setBudget(+e.target.value)}
+                />
               </GlassField>
               <GlassField label="Link Count Goal">
-                <input style={inputStyle} type="number" value={linkGoal} onChange={(e) => setLinkGoal(+e.target.value)} onFocus={focusRing} onBlur={blurRing} />
+                <input
+                  className="glass-input"
+                  type="number"
+                  value={linkGoal}
+                  onChange={(e) => setLinkGoal(+e.target.value)}
+                />
               </GlassField>
               <GlassField label="Min DR">
-                <input style={inputStyle} type="number" value={minDR} onChange={(e) => setMinDR(+e.target.value)} onFocus={focusRing} onBlur={blurRing} />
+                <input
+                  className="glass-input"
+                  type="number"
+                  value={minDR}
+                  onChange={(e) => setMinDR(+e.target.value)}
+                />
               </GlassField>
               <GlassField label="Min Traffic">
-                <input style={inputStyle} type="number" value={minTraffic} onChange={(e) => setMinTraffic(+e.target.value)} onFocus={focusRing} onBlur={blurRing} />
+                <input
+                  className="glass-input"
+                  type="number"
+                  value={minTraffic}
+                  onChange={(e) => setMinTraffic(+e.target.value)}
+                />
               </GlassField>
               <GlassField label="Geo Focus">
-                <input style={inputStyle} type="text" value={geo} onChange={(e) => setGeo(e.target.value)} onFocus={focusRing} onBlur={blurRing} />
+                <input
+                  className="glass-input"
+                  type="text"
+                  value={geo}
+                  onChange={(e) => setGeo(e.target.value)}
+                />
               </GlassField>
               <GlassField label="Follow Preference">
-                <select style={{ ...inputStyle, appearance: "none" as const }} value={followType} onChange={(e) => setFollowType(e.target.value as "dofollow" | "either")} onFocus={focusRing} onBlur={blurRing}>
-                  <option value="dofollow" style={{ background: "#1a1a2e" }}>Dofollow only</option>
-                  <option value="either" style={{ background: "#1a1a2e" }}>Either</option>
+                <select
+                  className="glass-input"
+                  value={followType}
+                  onChange={(e) =>
+                    setFollowType(e.target.value as "dofollow" | "either")
+                  }
+                >
+                  <option value="dofollow">Dofollow only</option>
+                  <option value="either">Either</option>
                 </select>
               </GlassField>
               <GlassField label="Industry Profile">
-                <select style={{ ...inputStyle, appearance: "none" as const }} value={profile} onChange={(e) => setProfile(e.target.value)} onFocus={focusRing} onBlur={blurRing}>
-                  <option value="standard" style={{ background: "#1a1a2e" }}>Standard</option>
-                  <option value="ecommerce" style={{ background: "#1a1a2e" }}>Ecommerce</option>
-                  <option value="fintech" style={{ background: "#1a1a2e" }}>Fintech</option>
-                  <option value="local" style={{ background: "#1a1a2e" }}>Local</option>
+                <select
+                  className="glass-input"
+                  value={profile}
+                  onChange={(e) => setProfile(e.target.value)}
+                >
+                  <option value="standard">Standard</option>
+                  <option value="ecommerce">Ecommerce</option>
+                  <option value="fintech">Fintech</option>
+                  <option value="local">Local</option>
                 </select>
               </GlassField>
               <GlassField label="Shortlist Size">
-                <select style={{ ...inputStyle, appearance: "none" as const }} value={shortlistSize} onChange={(e) => setShortlistSize(+e.target.value)} onFocus={focusRing} onBlur={blurRing}>
-                  <option value={25} style={{ background: "#1a1a2e" }}>25</option>
-                  <option value={50} style={{ background: "#1a1a2e" }}>50</option>
-                  <option value={100} style={{ background: "#1a1a2e" }}>100</option>
+                <select
+                  className="glass-input"
+                  value={shortlistSize}
+                  onChange={(e) => setShortlistSize(+e.target.value)}
+                >
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
                 </select>
               </GlassField>
             </div>
 
-            <div style={{ marginTop: 16 }}>
+            <div className="mt-4">
               <GlassField label="Target Page Keywords">
                 <textarea
-                  style={{ ...inputStyle, resize: "none", minHeight: 80 }}
+                  className="glass-input resize-none"
+                  style={{ minHeight: 88 }}
                   value={keywords}
                   onChange={(e) => setKeywords(e.target.value)}
-                  placeholder={"One keyword per line — e.g. skills management software"}
-                  onFocus={focusRing}
-                  onBlur={blurRing}
+                  placeholder="One keyword per line — e.g. skills management software"
                 />
               </GlassField>
             </div>
 
-            {/* Nav */}
-            <div style={{ marginTop: 32, paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.1)", display: "flex", justifyContent: "flex-end" }}>
-              <GradientButton onClick={() => setStep(2)}>Continue →</GradientButton>
-            </div>
+            <StepNav>
+              <div />
+              <button className="btn-gradient" onClick={() => setStep(2)}>
+                Continue
+                <ChevronRight />
+              </button>
+            </StepNav>
           </div>
         )}
 
-        {/* ---- STEP 2: Domain Matching ---- */}
+        {/* ======== STEP 2: Domain Matching ======== */}
         {step === 2 && (
-          <div style={{ ...glass, padding: "32px" }}>
-            <h2
-              style={{
-                fontSize: "24px",
-                fontWeight: 700,
-                background: "linear-gradient(to right, #00d4ff, #a855f7)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-                margin: "0 0 4px",
-              }}
-            >
+          <div className="glass p-8">
+            <h2 className="gradient-text text-2xl font-bold mb-1">
               Domain Matching
             </h2>
-            <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "14px", margin: "0 0 24px" }}>
+            <p className="text-sm mb-8" style={{ color: "var(--muted)" }}>
               Upload your inventory or load from the database
             </p>
 
             {/* Drop zone */}
             <label
+              className="flex flex-col items-center justify-center rounded-2xl cursor-pointer transition-all duration-200 hover:border-[rgba(0,212,255,0.5)]"
               style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
                 height: 200,
-                border: domains.length ? "2px solid rgba(74,222,128,0.4)" : "2px dashed rgba(0,212,255,0.3)",
-                borderRadius: 16,
+                border: domains.length
+                  ? "2px solid rgba(74,222,128,0.4)"
+                  : "2px dashed rgba(0,212,255,0.3)",
                 background: "rgba(255,255,255,0.03)",
-                cursor: "pointer",
-                transition: "all 200ms ease-out",
               }}
             >
               <input
                 type="file"
                 accept=".csv"
-                style={{ display: "none" }}
-                onChange={(e) => e.target.files?.[0] && handleCsvUpload(e.target.files[0])}
+                className="hidden"
+                onChange={(e) =>
+                  e.target.files?.[0] && handleCsvUpload(e.target.files[0])
+                }
               />
               {domains.length > 0 ? (
                 <>
-                  <span style={{ fontSize: 32 }}>✅</span>
-                  <span style={{ color: "white", fontSize: 16, marginTop: 8 }}>
-                    {csvFilename || "Database loaded"} — {domains.length} domains
+                  <svg
+                    width="40"
+                    height="40"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#4ade80"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                  </svg>
+                  <span className="text-white text-base font-medium mt-3">
+                    {csvFilename || "Database loaded"} &mdash;{" "}
+                    {domains.length.toLocaleString()} domains
+                  </span>
+                  <span
+                    className="text-xs mt-1"
+                    style={{ color: "var(--muted)" }}
+                  >
+                    Click to replace
                   </span>
                 </>
               ) : (
                 <>
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="44"
+                    height="44"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="var(--accent-cyan)"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                     <polyline points="17 8 12 3 7 8" />
                     <line x1="12" y1="3" x2="12" y2="15" />
                   </svg>
-                  <span style={{ color: "white", fontSize: 16, marginTop: 12 }}>
-                    Drop your inventory CSV here or click to upload
+                  <span className="text-white text-base mt-3">
+                    Drop inventory CSV here or click to upload
                   </span>
-                  <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, marginTop: 4 }}>
-                    1,500+ domains supported
+                  <span
+                    className="text-xs mt-1"
+                    style={{ color: "var(--muted)" }}
+                  >
+                    2,313 domains supported &middot; 4 banner rows auto-skipped
                   </span>
                 </>
               )}
             </label>
 
             {/* Or divider */}
-            <div style={{ display: "flex", alignItems: "center", gap: 16, margin: "24px 0" }}>
-              <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
-              <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 13 }}>or</span>
-              <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.1)" }} />
+            <div className="flex items-center gap-4 my-6">
+              <div
+                className="flex-1 h-px"
+                style={{ background: "rgba(255,255,255,0.1)" }}
+              />
+              <span
+                className="text-xs uppercase tracking-widest"
+                style={{ color: "var(--muted-dim)" }}
+              >
+                or
+              </span>
+              <div
+                className="flex-1 h-px"
+                style={{ background: "rgba(255,255,255,0.1)" }}
+              />
             </div>
 
-            <div style={{ display: "flex", justifyContent: "center" }}>
-              <GhostButton onClick={handleLoadDb} disabled={dbLoading}>
-                {dbLoading ? "Loading..." : "Load from database"}
-              </GhostButton>
+            <div className="flex justify-center">
+              <button
+                className="btn-ghost"
+                onClick={handleLoadDb}
+                disabled={dbLoading}
+              >
+                {dbLoading ? (
+                  <>
+                    <Spinner /> Loading...
+                  </>
+                ) : (
+                  "Load from database"
+                )}
+              </button>
             </div>
 
             {/* Score button */}
             <button
               onClick={handleScore}
               disabled={loading || !domains.length}
-              style={{
-                width: "100%",
-                marginTop: 24,
-                padding: "14px 32px",
-                borderRadius: 9999,
-                border: "none",
-                background: domains.length ? "linear-gradient(135deg, #00d4ff, #a855f7)" : "rgba(255,255,255,0.1)",
-                color: domains.length ? "white" : "rgba(255,255,255,0.3)",
-                fontSize: 16,
-                fontWeight: 600,
-                cursor: domains.length ? "pointer" : "not-allowed",
-                transition: "all 200ms ease-out",
-                opacity: loading ? 0.6 : 1,
-              }}
+              className="btn-gradient w-full mt-6 py-3.5 text-base"
             >
-              {loading ? `Scoring ${domains.length} domains...` : "Score Domains →"}
+              {loading ? (
+                <>
+                  <Spinner /> Scoring {domains.length.toLocaleString()}{" "}
+                  domains...
+                </>
+              ) : (
+                <>Score Domains <ChevronRight /></>
+              )}
             </button>
 
-            {/* Nav */}
-            <div style={{ marginTop: 32, paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.1)", display: "flex", justifyContent: "space-between" }}>
-              <GhostButton onClick={() => setStep(1)}>← Back</GhostButton>
-              {results.length > 0 && <GradientButton onClick={() => setStep(3)}>Continue →</GradientButton>}
-            </div>
+            <StepNav>
+              <button className="btn-ghost" onClick={() => setStep(1)}>
+                <ChevronLeft /> Back
+              </button>
+              {results.length > 0 && (
+                <button className="btn-gradient" onClick={() => setStep(3)}>
+                  Continue <ChevronRight />
+                </button>
+              )}
+            </StepNav>
           </div>
         )}
 
-        {/* ---- STEP 3: Results ---- */}
+        {/* ======== STEP 3: Results ======== */}
         {step === 3 && (
-          <div>
+          <div className="space-y-4">
             {/* Summary bar */}
-            <div style={{ ...glass, padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{
-                  fontWeight: 700,
-                  fontSize: 18,
-                  background: "linear-gradient(to right, #00d4ff, #a855f7)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                }}>
+            <div className="glass p-5 flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-2">
+                <span className="gradient-text text-lg font-bold">
                   {clientName || "Results"}
                 </span>
-                <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 14 }}>· {profile.charAt(0).toUpperCase() + profile.slice(1)} Profile</span>
+                <span className="text-sm" style={{ color: "var(--muted)" }}>
+                  &middot;{" "}
+                  {profile.charAt(0).toUpperCase() + profile.slice(1)} Profile
+                </span>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <StatPill label={`${qualified.length} qualified`} color="#00d4ff" />
-                <StatPill label={`${disqualified.length} disqualified`} color="#ef4444" />
-                <StatPill label={`Avg score: ${avgScore}/100`} color="#a855f7" />
+              <div className="flex gap-2 flex-wrap">
+                <StatPill
+                  value={qualified.length}
+                  label="qualified"
+                  color="var(--accent-cyan)"
+                />
+                <StatPill
+                  value={disqualified.length}
+                  label="disqualified"
+                  color="#ef4444"
+                />
+                <StatPill
+                  value={avgScore}
+                  label="avg score"
+                  color="var(--accent-purple)"
+                />
               </div>
             </div>
 
             {/* Running totals */}
-            <div style={{ ...glass, padding: "16px 24px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: 24, marginBottom: 16 }}>
-              <GlassStat label="Selected" value={`${totals.count} links`} />
-              <GlassStat label="Budget used" value={`$${fmt(totals.spent)}`} />
-              <GlassStat label="Remaining" value={totals.remaining < 0 ? "Over budget" : `$${fmt(totals.remaining)}`} warn={totals.remaining < 0} />
-              <GlassStat label="Avg DR" value={String(totals.avgDr)} />
-              <div style={{ flex: 1 }} />
-              <GradientButton onClick={handleExport} disabled={selected.size === 0}>
-                Export XLSX
-              </GradientButton>
+            <div className="glass p-5 flex items-center flex-wrap gap-6">
+              <MetricBlock label="Selected" value={`${totals.count} links`} />
+              <MetricBlock label="Budget" value={`$${fmt(totals.spent)}`} />
+              <MetricBlock
+                label="Remaining"
+                value={
+                  totals.remaining < 0
+                    ? "Over budget"
+                    : `$${fmt(totals.remaining)}`
+                }
+                warn={totals.remaining < 0}
+              />
+              <MetricBlock label="Avg DR" value={String(totals.avgDr)} />
+              <div className="flex-1" />
+              <button
+                className="btn-gradient"
+                onClick={handleExport}
+                disabled={selected.size === 0}
+              >
+                <DownloadIcon /> Export XLSX
+              </button>
             </div>
 
             {/* Tabs */}
-            <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 16 }}>
-              <TabPill active={activeTab === "shortlist"} onClick={() => setActiveTab("shortlist")}>
+            <div className="flex justify-center gap-2">
+              <TabPill
+                active={activeTab === "shortlist"}
+                onClick={() => setActiveTab("shortlist")}
+              >
                 Shortlist ({qualified.length})
               </TabPill>
-              <TabPill active={activeTab === "disqualified"} onClick={() => setActiveTab("disqualified")}>
+              <TabPill
+                active={activeTab === "disqualified"}
+                onClick={() => setActiveTab("disqualified")}
+              >
                 Disqualified ({disqualified.length})
               </TabPill>
             </div>
 
-            {/* Results table */}
+            {/* Shortlist table */}
             {activeTab === "shortlist" && qualified.length > 0 && (
-              <div style={{ ...glass, overflow: "hidden" }}>
+              <div className="glass overflow-hidden">
                 {/* Header */}
-                <div style={{
-                  display: "grid",
-                  gridTemplateColumns: "40px 50px 1.5fr 80px 1fr 60px 70px 60px 70px 50px",
-                  padding: "12px 16px",
-                  borderBottom: "1px solid rgba(255,255,255,0.08)",
-                  fontSize: 11,
-                  textTransform: "uppercase" as const,
-                  letterSpacing: "0.05em",
-                  color: "rgba(255,255,255,0.4)",
-                  fontWeight: 600,
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <GlassCheckbox checked={qualified.every((r) => selected.has(r.domain))} onChange={toggleSelectAll} />
+                <div
+                  className="grid items-center px-4 py-3 text-[11px] uppercase tracking-widest font-semibold select-none"
+                  style={{
+                    gridTemplateColumns:
+                      "44px 1.8fr 90px 1fr 56px 72px 64px 72px 44px",
+                    color: "var(--muted-dim)",
+                    borderBottom: "1px solid rgba(255,255,255,0.08)",
+                  }}
+                >
+                  <div className="flex justify-center">
+                    <GlassCheckbox
+                      checked={qualified.every((r) => selected.has(r.domain))}
+                      onChange={toggleSelectAll}
+                    />
                   </div>
-                  <div>#</div>
                   <div>Domain</div>
                   <div>Score</div>
                   <div>Niche Match</div>
-                  <div style={{ textAlign: "right" }}>DR</div>
-                  <div style={{ textAlign: "right" }}>Traffic</div>
-                  <div style={{ textAlign: "right" }}>Price</div>
+                  <div className="text-right">DR</div>
+                  <div className="text-right">Traffic</div>
+                  <div className="text-right">Price</div>
                   <div>Ranking</div>
                   <div />
                 </div>
 
-                {/* Rows with react-window */}
+                {/* Virtualized rows */}
                 <List
-                  style={{ overflow: "auto", height: Math.min(qualified.length * 64, 640) }}
+                  style={{
+                    overflow: "auto",
+                    height: Math.min(qualified.length * 68, 680),
+                  }}
                   rowCount={qualified.length}
-                  rowHeight={64}
+                  rowHeight={68}
                   rowComponent={VirtualRow}
-                  rowProps={{ qualified, selected, expandedRows, toggleSelect, toggleExpand }}
+                  rowProps={{
+                    qualified,
+                    selected,
+                    expandedRows,
+                    toggleSelect,
+                    toggleExpand,
+                  }}
                 />
 
-                {/* Expanded breakdown rows rendered outside react-window */}
-                {qualified.filter((r) => expandedRows.has(r.domain)).map((r) => (
-                  <div key={`exp-${r.domain}`} style={{
-                    padding: "16px 24px",
-                    borderBottom: "1px solid rgba(255,255,255,0.05)",
-                    background: "rgba(255,255,255,0.02)",
-                  }}>
-                    <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 8 }}>
-                      Breakdown for <span style={{ color: "white", fontWeight: 500 }}>{r.domain}</span>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 12 }}>
-                      {BREAKDOWN_LABELS.map(({ key, label }) => (
-                        <div key={key} style={{ textAlign: "center" }}>
-                          <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginBottom: 4 }}>{label}</div>
-                          <div style={{ fontWeight: 600, fontSize: 16 }}>{r.breakdown[key]}</div>
-                          <div style={{ height: 4, borderRadius: 2, background: "rgba(255,255,255,0.08)", marginTop: 6 }}>
-                            <div style={{
-                              height: "100%",
-                              borderRadius: 2,
-                              background: "linear-gradient(90deg, #00d4ff, #a855f7)",
-                              width: `${Math.min(r.breakdown[key] * 3, 100)}%`,
-                              transition: "width 300ms ease-out",
-                            }} />
+                {/* Expanded breakdowns */}
+                {qualified
+                  .filter((r) => expandedRows.has(r.domain))
+                  .map((r) => (
+                    <div
+                      key={`exp-${r.domain}`}
+                      className="px-6 py-4"
+                      style={{
+                        borderBottom: "1px solid rgba(255,255,255,0.05)",
+                        background: "rgba(255,255,255,0.02)",
+                      }}
+                    >
+                      <div
+                        className="text-xs mb-3"
+                        style={{ color: "var(--muted)" }}
+                      >
+                        Breakdown for{" "}
+                        <span className="text-white font-medium">
+                          {r.domain}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-7 gap-3">
+                        {BREAKDOWN_LABELS.map(({ key, label }) => (
+                          <div key={key} className="text-center">
+                            <div
+                              className="text-[11px] mb-1 uppercase tracking-wider"
+                              style={{ color: "var(--muted-dim)" }}
+                            >
+                              {label}
+                            </div>
+                            <div className="text-base font-semibold text-white">
+                              {r.breakdown[key]}
+                            </div>
+                            <div
+                              className="mt-1.5 h-1 rounded-full"
+                              style={{
+                                background: "rgba(255,255,255,0.08)",
+                              }}
+                            >
+                              <div
+                                className="h-full rounded-full transition-all duration-300"
+                                style={{
+                                  background:
+                                    "linear-gradient(90deg, var(--accent-cyan), var(--accent-purple))",
+                                  width: `${Math.min(r.breakdown[key] * 3, 100)}%`,
+                                }}
+                              />
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             )}
 
             {/* Disqualified tab */}
             {activeTab === "disqualified" && disqualified.length > 0 && (
-              <div style={{ ...glass, overflow: "hidden" }}>
+              <div className="glass overflow-hidden">
                 {disqualified.map((r, i) => (
-                  <div key={r.domain} style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "14px 20px",
-                    borderBottom: i < disqualified.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
-                    fontSize: 14,
-                  }}>
-                    <span>{r.domain}</span>
-                    <span style={{ padding: "3px 10px", borderRadius: 8, background: "rgba(239,68,68,0.15)", color: "#f87171", fontSize: 12 }}>
+                  <div
+                    key={r.domain}
+                    className="flex items-center justify-between px-5 py-3.5 text-sm"
+                    style={{
+                      borderBottom:
+                        i < disqualified.length - 1
+                          ? "1px solid rgba(255,255,255,0.05)"
+                          : "none",
+                    }}
+                  >
+                    <span className="text-white">{r.domain}</span>
+                    <span
+                      className="text-xs font-medium px-3 py-1 rounded-full"
+                      style={{
+                        background: "rgba(239,68,68,0.12)",
+                        color: "#f87171",
+                      }}
+                    >
                       {r.disqualifyReason || "Disqualified"}
                     </span>
                   </div>
@@ -696,24 +841,34 @@ export default function Page() {
 
             {/* Empty state */}
             {results.length === 0 && !loading && (
-              <div style={{ ...glass, padding: "64px 32px", textAlign: "center" }}>
-                <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.3 }}>🔍</div>
-                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 16 }}>Score domains to see results</div>
+              <div className="glass p-16 text-center">
+                <svg
+                  width="48"
+                  height="48"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mx-auto mb-4"
+                  style={{ color: "rgba(255,255,255,0.2)" }}
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <div style={{ color: "var(--muted)" }}>
+                  Score domains to see results
+                </div>
               </div>
             )}
 
             {/* Nav */}
-            <div style={{ marginTop: 24, display: "flex", justifyContent: "space-between" }}>
-              <GhostButton onClick={() => setStep(2)}>← Back</GhostButton>
+            <div className="flex justify-between pt-2">
+              <button className="btn-ghost" onClick={() => setStep(2)}>
+                <ChevronLeft /> Back
+              </button>
             </div>
-          </div>
-        )}
-
-        {/* Empty state for step 3 when no results yet */}
-        {step !== 1 && step !== 2 && step !== 3 && (
-          <div style={{ ...glass, padding: "64px 32px", textAlign: "center" }}>
-            <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.3 }}>🔍</div>
-            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 16 }}>Score domains to see results</div>
           </div>
         )}
       </main>
@@ -733,66 +888,173 @@ interface VirtualRowData {
   toggleExpand: (domain: string) => void;
 }
 
-function VirtualRow(props: {
-  ariaAttributes: { "aria-posinset": number; "aria-setsize": number; role: "listitem" };
-  index: number;
-  style: React.CSSProperties;
-} & VirtualRowData) {
-  const { index, style: rowStyle, qualified, selected, expandedRows, toggleSelect, toggleExpand } = props;
+function VirtualRow(
+  props: {
+    ariaAttributes: {
+      "aria-posinset": number;
+      "aria-setsize": number;
+      role: "listitem";
+    };
+    index: number;
+    style: React.CSSProperties;
+  } & VirtualRowData
+) {
+  const {
+    index,
+    style: rowStyle,
+    qualified,
+    selected,
+    expandedRows,
+    toggleSelect,
+    toggleExpand,
+  } = props;
   const r = qualified[index];
   const price = num(r.raw.li_price ?? r.raw.gp_price);
-  const isExpanded = expandedRows.has(r.domain);
   return (
     <div style={rowStyle}>
       <div
         onClick={() => toggleExpand(r.domain)}
+        className="grid items-center px-4 cursor-pointer transition-colors duration-150"
         style={{
-          display: "grid",
-          gridTemplateColumns: "40px 50px 1.5fr 80px 1fr 60px 70px 60px 70px 50px",
-          padding: "0 16px",
-          height: 64,
-          alignItems: "center",
-          cursor: "pointer",
-          transition: "all 200ms ease-out",
+          gridTemplateColumns:
+            "44px 1.8fr 90px 1fr 56px 72px 64px 72px 44px",
+          height: 68,
           borderBottom: "1px solid rgba(255,255,255,0.05)",
           fontSize: 14,
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "transparent";
+        }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }} onClick={(e) => { e.stopPropagation(); toggleSelect(r.domain); }}>
-          <GlassCheckbox checked={selected.has(r.domain)} onChange={() => toggleSelect(r.domain)} />
+        {/* Checkbox */}
+        <div
+          className="flex justify-center"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleSelect(r.domain);
+          }}
+        >
+          <GlassCheckbox
+            checked={selected.has(r.domain)}
+            onChange={() => toggleSelect(r.domain)}
+          />
         </div>
-        <div style={{ color: "rgba(255,255,255,0.4)" }}>{index + 1}</div>
-        <div style={{ fontWeight: 500 }}>{r.domain}</div>
+
+        {/* Domain */}
+        <div className="font-medium truncate pr-2">{r.domain}</div>
+
+        {/* Score */}
         <div>
-          <div style={{ fontSize: 14 }}>
-            <span style={{ fontWeight: 600 }}>{r.totalScore}</span>
-            <span style={{ color: "rgba(255,255,255,0.4)" }}> / {r.profileMax}</span>
+          <div className="tabular-nums text-sm">
+            <span className="font-semibold">{r.totalScore}</span>
+            <span style={{ color: "rgba(255,255,255,0.35)" }}>
+              /{r.profileMax}
+            </span>
           </div>
-          <div style={{ height: 3, borderRadius: 2, background: "rgba(255,255,255,0.08)", marginTop: 4, width: "100%" }}>
-            <div style={{ height: "100%", borderRadius: 2, background: "linear-gradient(90deg, #00d4ff, #a855f7)", width: `${(r.totalScore / r.profileMax) * 100}%`, transition: "width 300ms ease-out" }} />
+          <div
+            className="mt-1 h-[3px] rounded-full"
+            style={{ background: "rgba(255,255,255,0.08)" }}
+          >
+            <div
+              className="h-full rounded-full transition-all duration-300"
+              style={{
+                background:
+                  "linear-gradient(90deg, var(--accent-cyan), var(--accent-purple))",
+                width: `${(r.totalScore / r.profileMax) * 100}%`,
+              }}
+            />
           </div>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-          {r.nicheMatches.length > 0 ? r.nicheMatches.slice(0, 3).map((m) => (
-            <span key={m} style={{ padding: "2px 8px", borderRadius: 8, border: "1px solid rgba(0,212,255,0.3)", color: "#00d4ff", fontSize: 11 }}>{m}</span>
-          )) : <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 12 }}>None</span>}
-        </div>
-        <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{num(r.raw.dr)}</div>
-        <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmt(num(r.raw.traffic))}</div>
-        <div style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{price > 0 ? `$${price}` : "—"}</div>
-        <div>
-          {r.raw.ranking === "Good" || r.raw.ranking === "good" ? (
-            <span style={{ padding: "2px 8px", borderRadius: 8, background: "rgba(74,222,128,0.15)", color: "#4ade80", fontSize: 12 }}>Good</span>
-          ) : r.raw.ranking ? (
-            <span style={{ padding: "2px 8px", borderRadius: 8, background: "rgba(251,191,36,0.15)", color: "#fbbf24", fontSize: 12 }}>{r.raw.ranking}</span>
+
+        {/* Niche pills */}
+        <div className="flex flex-wrap gap-1 overflow-hidden">
+          {r.nicheMatches.length > 0 ? (
+            r.nicheMatches.slice(0, 3).map((m: string) => (
+              <span
+                key={m}
+                className="text-[11px] px-2 py-0.5 rounded-md"
+                style={{
+                  border: "1px solid rgba(0,212,255,0.25)",
+                  color: "var(--accent-cyan)",
+                  background: "rgba(0,212,255,0.06)",
+                }}
+              >
+                {m}
+              </span>
+            ))
           ) : (
-            <span style={{ color: "rgba(255,255,255,0.3)" }}>—</span>
+            <span className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>
+              None
+            </span>
           )}
         </div>
-        <div style={{ textAlign: "center", color: "rgba(255,255,255,0.4)", fontSize: 12 }}>
-          {isExpanded ? "▲" : "▼"}
+
+        {/* DR */}
+        <div className="text-right tabular-nums">{num(r.raw.dr)}</div>
+
+        {/* Traffic */}
+        <div className="text-right tabular-nums">
+          {fmt(num(r.raw.traffic))}
+        </div>
+
+        {/* Price */}
+        <div className="text-right tabular-nums">
+          {price > 0 ? `$${price}` : "—"}
+        </div>
+
+        {/* Ranking */}
+        <div>
+          {r.raw.ranking === "Good" || r.raw.ranking === "good" ? (
+            <span
+              className="text-xs font-medium px-2 py-0.5 rounded-md"
+              style={{
+                background: "rgba(74,222,128,0.12)",
+                color: "#4ade80",
+              }}
+            >
+              Good
+            </span>
+          ) : r.raw.ranking ? (
+            <span
+              className="text-xs font-medium px-2 py-0.5 rounded-md"
+              style={{
+                background: "rgba(251,191,36,0.12)",
+                color: "#fbbf24",
+              }}
+            >
+              {r.raw.ranking}
+            </span>
+          ) : (
+            <span style={{ color: "rgba(255,255,255,0.25)" }}>—</span>
+          )}
+        </div>
+
+        {/* Expand toggle */}
+        <div
+          className="flex justify-center"
+          style={{ color: "rgba(255,255,255,0.35)" }}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="transition-transform duration-200"
+            style={{
+              transform: expandedRows.has(r.domain)
+                ? "rotate(180deg)"
+                : "rotate(0deg)",
+            }}
+          >
+            <polyline points="4 6 8 10 12 6" />
+          </svg>
         </div>
       </div>
     </div>
@@ -803,20 +1065,19 @@ function VirtualRow(props: {
 /*  Sub-components                                                     */
 /* ------------------------------------------------------------------ */
 
-function focusRing(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
-  e.currentTarget.style.boxShadow = "0 0 0 2px rgba(0,212,255,0.4)";
-  e.currentTarget.style.borderColor = "rgba(0,212,255,0.5)";
-}
-
-function blurRing(e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
-  e.currentTarget.style.boxShadow = "none";
-  e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
-}
-
-function GlassField({ label, children }: { label: string; children: React.ReactNode }) {
+function GlassField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
-    <label style={{ display: "block" }}>
-      <span style={{ display: "block", fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,0.6)", marginBottom: 6 }}>
+    <label className="block">
+      <span
+        className="block text-[11px] font-medium uppercase tracking-widest mb-1.5"
+        style={{ color: "var(--muted-dim)" }}
+      >
         {label}
       </span>
       {children}
@@ -824,121 +1085,225 @@ function GlassField({ label, children }: { label: string; children: React.ReactN
   );
 }
 
-function GradientButton({ children, onClick, disabled }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean }) {
+function GlassCheckbox({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: () => void;
+}) {
   return (
     <button
-      onClick={onClick}
-      disabled={disabled}
-      style={{
-        padding: "12px 32px",
-        borderRadius: 9999,
-        border: "none",
-        background: disabled ? "rgba(255,255,255,0.1)" : "linear-gradient(135deg, #00d4ff, #a855f7)",
-        color: disabled ? "rgba(255,255,255,0.3)" : "white",
-        fontSize: 14,
-        fontWeight: 600,
-        cursor: disabled ? "not-allowed" : "pointer",
-        transition: "all 200ms ease-out",
+      role="checkbox"
+      aria-checked={checked}
+      onClick={(e) => {
+        e.stopPropagation();
+        onChange();
       }}
-      onMouseEnter={(e) => { if (!disabled) { e.currentTarget.style.opacity = "0.9"; e.currentTarget.style.transform = "scale(1.05)"; } }}
-      onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; e.currentTarget.style.transform = "scale(1)"; }}
-    >
-      {children}
-    </button>
-  );
-}
-
-function GhostButton({ children, onClick, disabled }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
+      className="w-[18px] h-[18px] rounded-[5px] flex items-center justify-center transition-all duration-150 cursor-pointer"
       style={{
-        padding: "12px 32px",
-        borderRadius: 9999,
-        border: "1px solid rgba(255,255,255,0.2)",
-        background: "transparent",
-        color: disabled ? "rgba(255,255,255,0.3)" : "white",
-        fontSize: 14,
-        fontWeight: 500,
-        cursor: disabled ? "not-allowed" : "pointer",
-        transition: "all 200ms ease-out",
-      }}
-      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.background = "rgba(255,255,255,0.07)"; }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-    >
-      {children}
-    </button>
-  );
-}
-
-function GlassCheckbox({ checked, onChange }: { checked: boolean; onChange: () => void }) {
-  return (
-    <div
-      onClick={(e) => { e.stopPropagation(); onChange(); }}
-      style={{
-        width: 18,
-        height: 18,
-        borderRadius: 6,
         border: checked ? "none" : "1.5px solid rgba(255,255,255,0.25)",
-        background: checked ? "#00d4ff" : "rgba(255,255,255,0.05)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        cursor: "pointer",
-        transition: "all 200ms ease-out",
-        fontSize: 11,
-        color: checked ? "#000" : "transparent",
-        fontWeight: 700,
+        background: checked ? "var(--accent-cyan)" : "rgba(255,255,255,0.05)",
       }}
     >
-      {checked && "✓"}
-    </div>
+      {checked && (
+        <svg
+          width="11"
+          height="11"
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="#000"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="2.5 6.5 5 9 9.5 3.5" />
+        </svg>
+      )}
+    </button>
   );
 }
 
-function StatPill({ label, color }: { label: string; color: string }) {
+function StatPill({
+  value,
+  label,
+  color,
+}: {
+  value: number;
+  label: string;
+  color: string;
+}) {
   return (
-    <span style={{
-      padding: "4px 12px",
-      borderRadius: 9999,
-      background: `${color}15`,
-      border: `1px solid ${color}30`,
-      color,
-      fontSize: 13,
-      fontWeight: 500,
-    }}>
-      {label}
+    <span
+      className="text-xs font-medium px-3 py-1 rounded-full tabular-nums"
+      style={{
+        background: `color-mix(in srgb, ${color} 10%, transparent)`,
+        border: `1px solid color-mix(in srgb, ${color} 20%, transparent)`,
+        color,
+      }}
+    >
+      {value} {label}
     </span>
   );
 }
 
-function GlassStat({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
+function MetricBlock({
+  label,
+  value,
+  warn,
+}: {
+  label: string;
+  value: string;
+  warn?: boolean;
+}) {
   return (
     <div>
-      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>{label}</div>
-      <div style={{ fontSize: 20, fontWeight: 600, color: warn ? "#f87171" : "white" }}>{value}</div>
+      <div
+        className="text-[11px] uppercase tracking-widest font-medium"
+        style={{ color: "var(--muted-dim)" }}
+      >
+        {label}
+      </div>
+      <div
+        className="text-xl font-semibold tabular-nums"
+        style={{ color: warn ? "#f87171" : "white" }}
+      >
+        {value}
+      </div>
     </div>
   );
 }
 
-function TabPill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function TabPill({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <button
       onClick={onClick}
-      style={{
-        padding: "8px 20px",
-        borderRadius: 9999,
-        border: active ? "none" : "1px solid rgba(255,255,255,0.15)",
-        background: active ? "linear-gradient(135deg, #00d4ff, #a855f7)" : "transparent",
-        color: active ? "white" : "rgba(255,255,255,0.5)",
-        fontSize: 14,
-        fontWeight: 500,
-        cursor: "pointer",
-        transition: "all 200ms ease-out",
-      }}
+      className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-200 cursor-pointer ${
+        active ? "btn-gradient" : ""
+      }`}
+      style={
+        active
+          ? {}
+          : {
+              border: "1px solid rgba(255,255,255,0.15)",
+              background: "transparent",
+              color: "var(--muted)",
+            }
+      }
     >
       {children}
     </button>
+  );
+}
+
+function StepNav({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="mt-8 pt-6 flex justify-between items-center"
+      style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function ErrorBanner({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="glass mb-6 px-5 py-3 text-sm"
+      style={{
+        background: "rgba(239,68,68,0.08)",
+        borderColor: "rgba(239,68,68,0.25)",
+        color: "#f87171",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/* ---- Icons ---- */
+
+function ChevronRight() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="6 4 10 8 6 12" />
+    </svg>
+  );
+}
+
+function ChevronLeft() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="10 4 6 8 10 12" />
+    </svg>
+  );
+}
+
+function DownloadIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      className="animate-spin"
+    >
+      <circle
+        cx="8"
+        cy="8"
+        r="6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeDasharray="28"
+        strokeDashoffset="8"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
