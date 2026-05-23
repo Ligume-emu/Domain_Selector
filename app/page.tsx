@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { parseDomainCSV } from "@/lib/csv-parser";
 import type {
   DomainRecord,
@@ -61,7 +61,6 @@ export default function Page() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [dbLoading, setDbLoading] = useState(false);
   const [exportError, setExportError] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
 
   /* ---- Derived ---- */
   const qualified = useMemo(() => results.filter((r) => !r.disqualified), [results]);
@@ -337,19 +336,19 @@ export default function Page() {
 
         {/* ---- Data source buttons ---- */}
         <div className="flex flex-wrap items-center gap-3">
+          <label
+            htmlFor="csv-upload"
+            className="btn-secondary cursor-pointer inline-block"
+          >
+            Upload CSV
+          </label>
           <input
-            ref={fileRef}
+            id="csv-upload"
             type="file"
             accept=".csv"
             className="hidden"
             onChange={(e) => e.target.files?.[0] && handleCsvUpload(e.target.files[0])}
           />
-          <button
-            onClick={() => fileRef.current?.click()}
-            className="btn-secondary"
-          >
-            Upload CSV
-          </button>
           <button
             onClick={handleLoadDb}
             disabled={dbLoading}
