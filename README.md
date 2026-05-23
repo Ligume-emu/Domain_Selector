@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Domain Selector
 
-## Getting Started
+A Next.js application for scoring, filtering, and exporting link-building domain inventories. Built with the App Router, Prisma ORM, and a Python export sidecar.
 
-First, run the development server:
+## Local Setup
 
 ```bash
+# 1. Install dependencies
+npm install
+
+# 2. Run database migrations (SQLite for local dev)
+npx prisma migrate dev
+
+# 3. Seed domains from the CSV inventory
+npx ts-node --compiler-options '{"module":"CommonJS"}' prisma/seed.ts
+
+# 4. Start the Next.js dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# App runs at http://localhost:3000
+
+# 5. Start the export sidecar (separate terminal)
+pip install fastapi uvicorn openpyxl
+python -m uvicorn scripts.export_server:app --port 8001 --reload
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Deployment to Vercel
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. **Swap the Prisma provider** from SQLite to PostgreSQL:
+   ```prisma
+   datasource db {
+     provider = "postgresql"
+     url      = env("DATABASE_URL")
+   }
+   ```
+2. **Set the `DATABASE_URL` environment variable** in Vercel project settings to your PostgreSQL connection string.
+3. **Run migrations** against the production database:
+   ```bash
+   npx prisma migrate deploy
+   ```
+4. **Export sidecar**: The Python FastAPI sidecar (`scripts/export_server.py`) cannot run on Vercel's serverless platform. Deploy it separately on **Railway**, **Render**, or any container host. Set the sidecar URL in your environment so the `/api/export` route can reach it.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Updating the Scoring Config
 
-## Learn More
+Scoring weights and thresholds are stored in the `ConfigVersion` table. Each row contains:
 
-To learn more about Next.js, take a look at the following resources:
+| Field       | Description                                                  |
+|-------------|--------------------------------------------------------------|
+| `version`   | Integer version number (unique)                              |
+| `isActive`  | Boolean — only one version should be active at a time        |
+| `note`      | Free-text description of what changed                        |
+| `base`      | JSON object with profile weights, DR/traffic thresholds, etc.|
+| `overrides`  | JSON object with per-niche or per-geo scoring overrides      |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+To update:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npx prisma studio
+```
 
-## Deploy on Vercel
+Edit the `ConfigVersion` table directly — create a new row with `version` incremented, set `isActive = true`, and set the previous version's `isActive = false`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Rolling Back a Config Change
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Open Prisma Studio: `npx prisma studio`
+2. Set `isActive = false` on the current (broken) config version.
+3. Set `isActive = true` on the previous version you want to restore.
+4. The app reads the active config on each request — no restart needed.

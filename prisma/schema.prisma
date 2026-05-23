@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model ConfigVersion {
+  id        Int      @id @default(autoincrement())
+  version   Int      @unique
+  note      String   @default("")
+  isActive  Boolean  @default(false)
+  base      Json
+  overrides Json
+  createdAt DateTime @default(now())
+}
+
+model Domain {
+  id              Int      @id @default(autoincrement())
+  domain          String   @unique
+  dr              String   @default("0")
+  traffic         String   @default("0")
+  geo             String   @default("global")
+  niche           String   @default("")
+  main            String   @default("")
+  complementary   String   @default("")
+  indirect        String   @default("")
+  gpPrice         String?
+  liPrice         String?
+  linkType        String   @default("")
+  ranking         String   @default("")
+  redFlags        String   @default("")
+  contactEmail    String   @default("")
+  tat             String   @default("")
+  timesUsed       String   @default("")
+  status          String   @default("")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Campaign {
+  id        Int      @id @default(autoincrement())
+  name      String
+  brief     Json
+  shortlist Json
+  included  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
