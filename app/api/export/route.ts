@@ -4,7 +4,8 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const resp = await fetch("http://localhost:8001/export", {
+    const sidecarUrl = process.env.EXPORT_SIDECAR_URL || "http://localhost:8001";
+    const resp = await fetch(`${sidecarUrl}/export`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -25,9 +26,9 @@ export async function POST(req: NextRequest) {
         "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
-  } catch (e: any) {
+  } catch {
     return NextResponse.json(
-      { error: `Export failed: ${e.message}` },
+      { error: "Export sidecar not running. Start it with: uvicorn scripts.export_server:app --port 8001" },
       { status: 502 }
     );
   }

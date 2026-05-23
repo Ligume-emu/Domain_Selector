@@ -207,7 +207,10 @@ export default function Page() {
           domains: chosen,
         }),
       });
-      if (!res.ok) throw new Error("Export failed");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.error || "Export failed");
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -582,7 +585,7 @@ export default function Page() {
             <div style={{ ...glass, padding: "16px 24px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: 24, marginBottom: 16 }}>
               <GlassStat label="Selected" value={`${totals.count} links`} />
               <GlassStat label="Budget used" value={`$${fmt(totals.spent)}`} />
-              <GlassStat label="Remaining" value={`$${fmt(totals.remaining)}`} warn={totals.remaining < 0} />
+              <GlassStat label="Remaining" value={totals.remaining < 0 ? "Over budget" : `$${fmt(totals.remaining)}`} warn={totals.remaining < 0} />
               <GlassStat label="Avg DR" value={String(totals.avgDr)} />
               <div style={{ flex: 1 }} />
               <GradientButton onClick={handleExport} disabled={selected.size === 0}>
